@@ -1,12 +1,13 @@
 {
-  "author": "Thorsten Lorenz <thlorenz@gmx.de> (thlorenz.com)",
-  "name": "readdirp",
-  "description": "Recursive version of fs.readdir with streaming api.",
+  "author": "Thorsten Lorenz <thlorenz@gmx.de> (thlorenz.com), Sync changes by DavidP.",
+  "name": "readdirpSync",
+  "description": "Recursive version of fs.readdirSync.",
   "version": "1.3.0",
-  "homepage": "https://github.com/thlorenz/readdirp",
+  "private" : true,
+  "homepage": "https://github.com/davidp-icracked/readdirp",
   "repository": {
     "type": "git",
-    "url": "git://github.com/thlorenz/readdirp.git"
+    "url": "git@github.com:davidp-icracked/readdirp.git"
   },
   "engines": {
     "node": ">=0.6"
