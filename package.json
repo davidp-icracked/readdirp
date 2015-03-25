@@ -3,7 +3,7 @@
   "name": "readdirpSync",
   "description": "Recursive version of fs.readdirSync.",
   "version": "1.3.0",
-  "private" : true,
+  "private": true,
   "homepage": "https://github.com/davidp-icracked/readdirp",
   "repository": {
     "type": "git",
@@ -22,7 +22,7 @@
     "find",
     "filter"
   ],
-  "main": "readdirp.js",
+  "main": "readdirpSync.js",
   "scripts": {
     "test-main": "(cd test && set -e; for t in ./*.js; do node $t; done)",
     "test-0.8": "nave use 0.8 npm run test-main",
