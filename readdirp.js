@@ -31,7 +31,7 @@ function isUndefined (obj) {
  * @param { function } callback2  Calls back once all files have been processed with an array of errors and file infos
  *                                function (err, fileInfos) { ... }
  */
-function readdirSync(opts, callback1, callback2) {
+function readdir(opts, callback1, callback2) {
   var stream
     , handleError
     , handleFatalError
@@ -150,25 +150,25 @@ function readdirSync(opts, callback1, callback2) {
     }
   }
 
-  function processDir(currentDir, entries) {
-    if (aborted) return [];
-    var total = entries.length;
-    var processed = 0;
-    var entryInfos = [];
+  function processDir(currentDir, entries, callProcessed) {
+    if (aborted) return;
+    var total = entries.length
+      , processed = 0
+      , entryInfos = []
+      ;
 
-    var realCurrentDir = fs.realpathSync(currentDir);
-
-      if (aborted) return [];
+    fs.realpath(currentDir, function(err, realCurrentDir) {
+      if (aborted) return;
       if (err) {
         handleError(err);
         callProcessed(entryInfos);
-        return [];
+        return;
       }
 
       var relDir = path.relative(realRoot, realCurrentDir);
 
       if (entries.length === 0) {
-        return [];
+        callProcessed([]);
       } else {
         entries.forEach(function (entry) { 
 
@@ -191,31 +191,45 @@ function readdirSync(opts, callback1, callback2) {
               });
             }
             processed++;
-            if (processed === total) return entryInfos;
+            if (processed === total) callProcessed(entryInfos);
           });
         });
       }
     });
   }
 
-  function readdirRec(currentDir, depth) {
-    var entries = fs.readdirSync(currentDir);
-    var entryInfos = processDir(currentDir, entries);
+  function readdirRec(currentDir, depth, callCurrentDirProcessed) {
+    if (aborted) return;
 
-        var subdirs = entryInfos.filter(function (ei) { 
-          return ei.stat.isDirectory() && opts.directoryFilter(ei); 
-        });
+    fs.readdir(currentDir, function (err, entries) {
+      if (err) {
+        handleError(err);
+        callCurrentDirProcessed();
+        return;
+      }
+
+      processDir(currentDir, entries, function(entryInfos) {
+
+        var subdirs = entryInfos
+          .filter(function (ei) { return ei.stat.isDirectory() && opts.directoryFilter(ei); });
 
         subdirs.forEach(function (di) {
+          if(opts.entryType === 'directories' || opts.entryType === 'both' || opts.entryType === 'all') {
+            fileProcessed(di);
+          }
           readdirResult.directories.push(di); 
         });
 
-        entryInfos.filter(function(ei) {
+        entryInfos
+          .filter(function(ei) {
             var isCorrectType = opts.entryType === 'all' ?
               !ei.stat.isDirectory() : ei.stat.isFile() || ei.stat.isSymbolicLink();
             return isCorrectType && opts.fileFilter(ei);
           })
           .forEach(function (fi) {
+            if(opts.entryType === 'files' || opts.entryType === 'both' || opts.entryType === 'all') {
+              fileProcessed(fi);
+            }
             readdirResult.files.push(fi); 
           });
 
@@ -223,15 +237,21 @@ function readdirSync(opts, callback1, callback2) {
 
         // Be done if no more subfolders exist or we reached the maximum desired depth
         if(pendingSubdirs === 0 || depth === opts.depth) {
-          return;
+          callCurrentDirProcessed();
         } else {
           // recurse into subdirs, keeping track of which ones are done 
           // and call back once all are processed
-
           subdirs.forEach(function (subdir) {
-            readdirRec(subdir.fullPath, depth + 1);
+            readdirRec(subdir.fullPath, depth + 1, function () {
+              pendingSubdirs = pendingSubdirs - 1;
+              if(pendingSubdirs === 0) { 
+                callCurrentDirProcessed();
+              }
+            });
           });
         }
+      });
+    });
   }
 
   // Validate and normalize filters
@@ -245,9 +265,24 @@ function readdirSync(opts, callback1, callback2) {
   }
 
   // If filters were valid get on with the show
-  var realRoot = fs.realpathSync(opts.root);
-  readdirRec(opts.root, 0);
-  return readdirResult;
+  fs.realpath(opts.root, function(err, res) {
+    if (err) {
+      handleFatalError(err);
+      return stream;
+    }
+
+    realRoot = res;
+    readdirRec(opts.root, 0, function () { 
+      // All errors are collected into the errors array
+      if (errors.length > 0) {
+        allProcessed(errors, readdirResult); 
+      } else {
+        allProcessed(null, readdirResult);
+      }
+    });
+  });
+
+  return stream;
 }
 
-module.exports = readdirSync;
+module.exports = readdir;
